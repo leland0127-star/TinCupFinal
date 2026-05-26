@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Staff Hub">
+<title>Staff Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ── PASTE YOUR FIREBASE CONFIG HERE ──────────────────────────────────────
+  // Replace everything inside firebaseConfig = { ... } with your own values
+  // from Firebase Console → Project Settings → Your apps → SDK setup
+  const firebaseConfig = {
+    apiKey:            "AIzaSyCNJ6M-qdPkEO4qa32gyOeM7WdreetFYMs",
+    authDomain:        "tincup-e74ba.firebaseapp.com",
+    databaseURL:       "https://tincup-e74ba-default-rtdb.firebaseio.com",
+    projectId:         "tincup-e74ba",
+    storageBucket:     "tincup-e74ba.firebasestorage.app",
+    messagingSenderId: "144777147456",
+    appId:             "1:144777147456:web:6454482be61513a183dba5"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+  const sharedRef = ref(db, 'staffhub/shared');
+
+  // Expose to global scope so the rest of the app can use them
+  window._fbRef   = sharedRef;
+  window._fbSet   = set;
+  window._fbReady = true;
+
+  // Listen for real-time changes from any device
+  onValue(sharedRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data && typeof applyShared === 'function') {
+      applyShared(data);
+      saveLocal();
+      renderUserSelect();
+      renderSched();
+      renderTime();
+      renderHistory();
+      renderCalendar();
+      renderNotes();
+    }
+  });
+</script>
+<style>
+:root{
+  --bg:#0f0f11;--bg2:#17171a;--bg3:#1f1f23;--bg4:#2a2a30;
+  --border:#2e2e35;--text:#f0f0f2;--text2:#9999a8;--text3:#55555f;
+  --accent:#7c6af7;--green:#3ecf8e;--red:#f97068;--yellow:#f5c842;--orange:#f5914e;
+  --r:14px;--rs:9px;--nav:52px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overscroll-behavior:none;}
+#app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;}
+
+/* NAV */
+#nav{flex-shrink:0;height:var(--nav);display:flex;overflow-x:auto;scrollbar-width:none;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:99;}
+#nav::-webkit-scrollbar{display:none;}
+.nb{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:0 15px;height:100%;white-space:nowrap;border:none;background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;color:var(--text3);border-bottom:3px solid transparent;transition:color .15s,border-color .15s;}
+.nb svg{width:15px;height:15px;stroke-width:2;flex-shrink:0;}
+.nb.on{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* SCREENS */
+.sc{display:none;overflow-y:auto;flex:1;padding-bottom:30px;}
+.sc.on{display:block;}
+.topbar{padding:14px 16px 10px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.topbar h1{font-size:18px;font-weight:600;}
+.topbar p{font-size:12px;color:var(--text2);margin-top:2px;}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:10px 14px;padding:14px;}
+.cardsm{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:12px 13px;margin-bottom:8px;}
+.sec{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--text3);text-transform:uppercase;padding:14px 16px 7px;display:flex;align-items:center;justify-content:space-between;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:var(--rs);font-size:14px;font-weight:500;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:opacity .15s;}
+.btn:active{opacity:.7;}
+.bp{background:var(--accent);color:#fff;}
+.bs{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+.bg2{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.bdn{background:rgba(249,112,104,.15);color:var(--red);border:1px solid rgba(249,112,104,.3);}
+.bgn{background:rgba(62,207,142,.15);color:var(--green);border:1px solid rgba(62,207,142,.3);}
+.byw{background:rgba(245,200,66,.15);color:var(--yellow);border:1px solid rgba(245,200,66,.3);}
+.bfull{width:100%;}
+.mb8{margin-bottom:8px;}
+
+/* PILLS */
+.pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.02em;}
+.po{background:rgba(62,207,142,.18);color:var(--green);}
+.pm{background:rgba(245,200,66,.18);color:var(--yellow);}
+.pc{background:rgba(249,112,104,.18);color:var(--red);}
+.pd{background:rgba(124,106,247,.18);color:var(--accent);}
+.pn{background:rgba(245,145,78,.18);color:var(--orange);}
+
+/* FORMS */
+input,textarea,select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;appearance:none;-webkit-appearance:none;}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);}
+textarea{resize:none;line-height:1.5;}
+select option{background:var(--bg3);}
+.fl{margin-bottom:12px;}
+.fl label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;font-weight:500;}
+
+/* MODAL */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:flex-end;justify-content:center;}
+.mbg.on{display:flex;}
+.modal{background:var(--bg2);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:18px 18px 36px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+.mh{width:34px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.modal h3{font-size:17px;font-weight:600;margin-bottom:3px;}
+.msub{font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.4;}
+
+/* TABLE ROWS */
+.srow{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.srow:last-child{border-bottom:none;}
+.srow:active{opacity:.7;}
+.dhead{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg3);border-bottom:1px solid var(--border);}
+.tsrow{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.tsrow:last-child{border-bottom:none;}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.prow:last-child{border-bottom:none;}
+.crow{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);}
+.crow:last-child{border-bottom:none;}
+.note-e{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:12px 13px;margin-bottom:8px;}
+.ilink{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:17px;}
+
+/* CALENDAR */
+.cal-week{margin-bottom:14px;}
+.cal-week-head{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs) var(--rs) 0 0;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.cal-week-body{background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--rs) var(--rs);}
+.cal-day{padding:10px 14px;border-bottom:1px solid var(--border);}
+.cal-day:last-child{border-bottom:none;}
+.cal-day-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.cal-day-name{font-weight:600;font-size:14px;}
+.cal-date{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}
+.cal-shifts{display:flex;flex-direction:column;gap:4px;}
+.cal-shift{display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--bg3);border-radius:6px;}
+.cal-shift-name{font-size:13px;font-weight:500;flex:1;}
+.cal-shift-time{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;}
+.cal-empty{font-size:12px;color:var(--text3);padding:2px 0;}
+
+/* UTILS */
+.fb{display:flex;justify-content:space-between;align-items:center;}
+.fg{display:flex;gap:8px;}
+.mt8{margin-top:8px;}.mt12{margin-top:12px;}.mt16{margin-top:16px;}
+.fw6{font-weight:600;}.mono{font-family:'DM Mono',monospace;}
+.tg{color:var(--green);}.tr{color:var(--red);}.ta{color:var(--accent);}.tm{color:var(--text2);}
+.tsm{font-size:13px;}.txs{font-size:11px;}.empty{text-align:center;padding:32px 16px;color:var(--text3);font-size:14px;}
+.atag{background:rgba(124,106,247,.2);color:var(--accent);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;}
+.toast{position:fixed;top:calc(var(--nav) + 10px);left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border);border-radius:20px;padding:9px 16px;font-size:13px;z-index:300;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
+.toast.on{opacity:1;}
+.shift-editor-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- NAV -->
+<nav id="nav">
+  <button class="nb on" onclick="go('schedule',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Schedule
+  </button>
+  <button class="nb" onclick="go('time',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+    Time &amp; Tips
+  </button>
+  <button class="nb" onclick="go('history',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+    History
+  </button>
+  <button class="nb" onclick="go('calendar',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>
+    Calendar
+  </button>
+  <button class="nb" onclick="go('notes',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Notes
+  </button>
+  <button class="nb" onclick="go('more',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>
+    More
+  </button>
+</nav>
+
+<!-- SCHEDULE -->
+<div class="sc on" id="sc-schedule">
+  <div class="topbar">
+    <div class="fb">
+      <div><h1>📅 Schedule</h1><p id="sched-sub">Select your name below</p></div>
+      <div id="admin-badge" style="display:none"><span class="atag">ADMIN</span></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px;">
+    <label style="font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:7px">Who are you?</label>
+    <select id="user-sel" onchange="setUser(this.value)"><option value="">Select your name…</option></select>
+  </div>
+  <div id="my-shifts" style="display:none">
+    <div class="sec">MY SHIFTS — TAP TO LOG</div>
+    <div id="my-shifts-list" style="padding:0 14px"></div>
+  </div>
+  <div id="full-sched" style="display:none">
+    <div class="sec">FULL SCHEDULE
+      <button class="btn bp" style="font-size:12px;padding:6px 13px" onclick="openAdminSched()">✏️ Edit</button>
+    </div>
+    <div id="full-sched-list"></div>
+  </div>
+</div>
+
+<!-- TIME & TIPS -->
+<div class="sc" id="sc-time">
+  <div class="topbar"><h1>⏱ Time &amp; Tips</h1><p>Log your hours and tips each shift</p></div>
+  <div id="time-prompt" class="card" style="margin-top:10px;"><p class="tm tsm">Select your name on the Schedule tab first.</p></div>
+  <div id="time-body" style="display:none">
+    <div style="padding:12px 14px 0;display:flex;gap:8px;">
+      <button class="btn bgn" style="flex:1" onclick="savePeriod()">💾 Save Period</button>
+      <button class="btn bp" style="flex:1" onclick="openPayroll()">📱 Send to Paul</button>
+    </div>
+    <div style="padding:6px 14px 0;">
+      <button class="btn bdn bfull" onclick="om('m-clear')">🗑 Clear Sheet</button>
+    </div>
+    <div class="sec">MY SHIFTS — TAP TO EDIT</div>
+    <div class="card"><div id="ts-rows"></div></div>
+    <div class="sec">TOTALS</div>
+    <div class="card">
+      <div class="prow"><span>Total Hours</span><span class="mono fw6" id="tot-hrs">0 hrs</span></div>
+      <div class="prow"><span>Cash Tips</span><span class="mono tg" id="tot-cash">$0.00</span></div>
+      <div class="prow"><span>Online Tips</span><span class="mono tg" id="tot-online">$0.00</span></div>
+      <div class="prow"><span class="fw6">Total Tips</span><span class="mono fw6 tg" id="tot-tips">$0.00</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="sc" id="sc-history">
+  <div class="topbar"><h1>🗂 History</h1><p>Saved pay periods</p></div>
+  <div id="hist-prompt" class="card" style="margin-top:10px;"><p class="tm tsm">Select your name on the Schedule tab first.</p></div>
+  <div id="hist-body" style="display:none">
+    <div class="sec">SAVED PERIODS</div>
+    <div id="hist-list" style="padding:0 14px"></div>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div class="sc" id="sc-calendar">
+  <div class="topbar">
+    <div class="fb">
+      <div><h1>📆 Calendar</h1><p>Full schedule — May to Aug 25</p></div>
+      <div id="cal-admin-btn" style="display:none">
+        <button class="btn bp" style="font-size:12px;padding:6px 13px" onclick="openAdminSched()">✏️ Edit</button>
+      </div>
+    </div>
+  </div>
+  <div id="cal-body" style="padding:10px 14px 16px"></div>
+</div>
+
+<!-- NOTES -->
+<div class="sc" id="sc-notes">
+  <div class="topbar"><h1>📝 Notes</h1><p>Shared team board — everyone sees this</p></div>
+  <div style="padding:12px 14px 0">
+    <textarea id="note-txt" rows="3" placeholder="Write a note for the team…"></textarea>
+    <button class="btn bp bfull mt8" onclick="postNote()">Post Note</button>
+  </div>
+  <div class="sec">TEAM BOARD</div>
+  <div id="notes-list" style="padding:0 14px"></div>
+</div>
+
+<!-- MORE -->
+<div class="sc" id="sc-more">
+  <div class="topbar"><h1>⚙️ More</h1><p>Contacts · Admin tools</p></div>
+  <div class="sec">CONTACTS</div>
+  <div class="card">
+    <div class="crow"><div><div class="fw6 tsm">Penny</div><div class="txs mono tm">+1 (860) 558-4326</div></div><div class="fg"><a href="sms:+18605584326" class="ilink">💬</a><a href="tel:+18605584326" class="ilink">📞</a></div></div>
+    <div class="crow"><div><div class="fw6 tsm">Maggie</div><div class="txs mono tm">+1 (959) 208-2963</div></div><div class="fg"><a href="sms:+19592082963" class="ilink">💬</a><a href="tel:+19592082963" class="ilink">📞</a></div></div>
+    <div class="crow"><div><div class="fw6 tsm">Penny (owner)</div><div class="txs mono tm">+1 (860) 256-1468</div></div><div class="fg"><a href="sms:+18602561468" class="ilink">💬</a><a href="tel:+18602561468" class="ilink">📞</a></div></div>
+    <div class="crow"><div><div class="fw6 tsm">Paul (payroll)</div><div class="txs mono tm">+1 (860) 985-3179</div></div><div class="fg"><a href="sms:+18609853179" class="ilink">💬</a><a href="tel:+18609853179" class="ilink">📞</a></div></div>
+  </div>
+  <div id="admin-tools" style="display:none">
+    <div class="sec">ADMIN TOOLS</div>
+    <div class="card">
+      <button class="btn bp bfull mb8" onclick="openManageStaff()">👥 Manage Staff</button>
+      <button class="btn bs bfull mb8" onclick="openAdminSched()">✏️ Edit Schedule / Shift Times</button>
+      <button class="btn byw bfull mb8" onclick="resetSchedule()">🔄 Reset Schedule to Default</button>
+      <button class="btn bs bfull" onclick="exportData()">📤 Export Data</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ══ MODALS ══ -->
+
+<!-- Shift log -->
+<div class="mbg" id="m-shift">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3 id="ms-title">Log Shift</h3>
+    <p class="msub" id="ms-sub"></p>
+    <div class="fl"><label>Clock In</label><input type="time" id="ms-in"></div>
+    <div class="fl"><label>Clock Out</label><input type="time" id="ms-out"></div>
+    <div class="fl"><label>Cash Tips ($)</label><input type="number" id="ms-cash" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="fl"><label>Online Tips ($)</label><input type="number" id="ms-online" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="fl"><label>Notes (optional)</label><textarea id="ms-notes" rows="2" placeholder="Anything to add…"></textarea></div>
+    <div class="fg mt16">
+      <button class="btn bs" style="flex:1" onclick="cm('m-shift')">Cancel</button>
+      <button class="btn bp" style="flex:1" onclick="saveShift()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payroll -->
+<div class="mbg" id="m-payroll">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3>Send to Paul</h3>
+    <p class="msub">Your pay period summary ready to send</p>
+    <div id="pay-pre" style="background:var(--bg3);border-radius:var(--rs);padding:13px;font-family:'DM Mono',monospace;font-size:12px;line-height:1.8;white-space:pre-wrap;margin-bottom:14px;max-height:260px;overflow-y:auto;"></div>
+    <a id="pay-sms" href="#" class="btn bp bfull mb8" style="text-decoration:none;">📱 Open in Messages to Paul</a>
+    <button class="btn bs bfull mb8" onclick="copyPay()">📋 Copy to Clipboard</button>
+    <button class="btn bg2 bfull" onclick="cm('m-payroll')">Close</button>
+  </div>
+</div>
+
+<!-- Clear confirm -->
+<div class="mbg" id="m-clear">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3>Clear Timesheet?</h3>
+    <p class="msub">This erases all logged hours and tips for this pay period. Tap Save Period first if you want to keep a record in History.</p>
+    <div class="fg mt16">
+      <button class="btn bs" style="flex:1" onclick="cm('m-clear')">Cancel</button>
+      <button class="btn bdn" style="flex:1" onclick="clearSheet()">Yes, Clear It</button>
+    </div>
+  </div>
+</div>
+
+<!-- History detail -->
+<div class="mbg" id="m-hist">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3 id="mh-title">Pay Period</h3>
+    <p class="msub" id="mh-sub"></p>
+    <div id="mh-body" style="background:var(--bg3);border-radius:var(--rs);padding:13px;font-family:'DM Mono',monospace;font-size:12px;line-height:1.8;white-space:pre-wrap;max-height:320px;overflow-y:auto;margin-bottom:14px;"></div>
+    <button class="btn bg2 bfull" onclick="cm('m-hist')">Close</button>
+  </div>
+</div>
+
+<!-- Admin schedule editor -->
+<div class="mbg" id="m-admin">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3>Edit Schedule</h3>
+    <p class="msub">Choose a week and day, then assign staff or edit shift times.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:5px">Week</label>
+        <select id="aw" onchange="renderPicker()">
+          <option value="1">Week 1</option><option value="2">Week 2</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:5px">Day</label>
+        <select id="ad" onchange="renderPicker()">
+          <option value="tue">Tuesday</option><option value="wed">Wednesday</option>
+          <option value="thu">Thursday</option><option value="fri">Friday</option>
+          <option value="sat">Saturday</option><option value="sun">Sunday</option>
+        </select>
+      </div>
+    </div>
+    <!-- Mode tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button id="tab-assign" class="btn bp" style="flex:1;font-size:13px;padding:9px" onclick="switchAdminTab('assign')">👤 Assign Staff</button>
+      <button id="tab-times" class="btn bs" style="flex:1;font-size:13px;padding:9px" onclick="switchAdminTab('times')">⏰ Edit Shift Times</button>
+    </div>
+    <div id="apicker"></div>
+    <div id="atimes" style="display:none"></div>
+    <button class="btn bs bfull mt16" onclick="cm('m-admin')">Done</button>
+  </div>
+</div>
+
+<!-- Manage Staff -->
+<div class="mbg" id="m-staff">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3>Manage Staff</h3>
+    <p class="msub">Add or remove employees from the roster.</p>
+    <div id="staff-list" style="margin-bottom:16px"></div>
+    <div class="fl"><label>Add New Employee</label><input type="text" id="new-emp-name" placeholder="Enter full name…" autocomplete="off"></div>
+    <button class="btn bp bfull mb8" onclick="addEmployee()">+ Add to Roster</button>
+    <button class="btn bs bfull" onclick="cm('m-staff')">Done</button>
+  </div>
+</div>
+
+<!-- Calendar day edit (admin) -->
+<div class="mbg" id="m-cal-edit">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3 id="mce-title">Edit Day</h3>
+    <p class="msub" id="mce-sub"></p>
+    <div id="mce-picker"></div>
+    <button class="btn bs bfull mt16" onclick="cm('m-cal-edit')">Done</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════ CONFIG ════════════════
+const PAUL = '+18609853179';
+
+const DAYS = [
+  {id:'tue',label:'Tuesday',  short:'Tue',c12:true },
+  {id:'wed',label:'Wednesday',short:'Wed',c12:true },
+  {id:'thu',label:'Thursday', short:'Thu',c12:false},
+  {id:'fri',label:'Friday',   short:'Fri',c12:false,fri:true},
+  {id:'sat',label:'Saturday', short:'Sat',c12:false},
+  {id:'sun',label:'Sunday',   short:'Sun',c12:true },
+];
+// Full 7-day list for calendar (Mon is closed so still labeled but no shifts)
+const ALL_DAYS = [
+  {id:'mon',label:'Monday',   short:'Mon',closed:true},
+  {id:'tue',label:'Tuesday',  short:'Tue',c12:true },
+  {id:'wed',label:'Wednesday',short:'Wed',c12:true },
+  {id:'thu',label:'Thursday', short:'Thu',c12:false},
+  {id:'fri',label:'Friday',   short:'Fri',c12:false,fri:true},
+  {id:'sat',label:'Saturday', short:'Sat',c12:false},
+  {id:'sun',label:'Sunday',   short:'Sun',c12:true },
+];
+
+const DEFAULT_SHIFT_DEFS = {
+  tue:[{t:'10a–4p',h:6,lbl:'Open'},{t:'4p–8p',h:4,lbl:'Mid'},{t:'8p–12a',h:4,lbl:'Close'}],
+  wed:[{t:'10a–4p',h:6,lbl:'Open'},{t:'4p–8p',h:4,lbl:'Mid'},{t:'8p–12a',h:4,lbl:'Close'}],
+  thu:[{t:'10a–4p',h:6,lbl:'Open'},{t:'4p–8p',h:4,lbl:'Mid'},{t:'8p–2a', h:6,lbl:'Close'}],
+  fri:[{t:'10a–10p',h:12,lbl:'Day'},{t:'10p–2a',h:4,lbl:'Night'}],
+  sat:[{t:'10a–4p',h:6,lbl:'Open'},{t:'4p–8p',h:4,lbl:'Mid'},{t:'8p–2a', h:6,lbl:'Close'}],
+  sun:[{t:'10a–4p',h:6,lbl:'Open'},{t:'4p–8p',h:4,lbl:'Mid'},{t:'8p–12a',h:4,lbl:'Close'}],
+};
+
+// Default assignments — Zani removed, Mon removed
+const DEFAULT = {
+  "w1_tue_0":"Maggie","w1_tue_1":"Katherine","w1_tue_2":"Katherine",
+  "w1_wed_0":"Maggie","w1_wed_1":"Lee","w1_wed_2":"Lee",
+  "w1_thu_0":"Maggie","w1_thu_1":"Katherine","w1_thu_2":"Katherine",
+  "w1_fri_0":"Maggie","w1_fri_1":"Lee",
+  "w1_sat_0":"Ana","w1_sat_1":"Ana","w1_sat_2":"Lee",
+  "w1_sun_0":"Lee","w1_sun_1":"Ana","w1_sun_2":"Ana",
+  "w2_tue_0":"Maggie","w2_tue_1":"Katherine","w2_tue_2":"Katherine",
+  "w2_wed_0":"Maggie","w2_wed_1":"Lee","w2_wed_2":"Lee",
+  "w2_thu_0":"Maggie","w2_thu_1":"Katherine","w2_thu_2":"Katherine",
+  "w2_fri_0":"Maggie","w2_fri_1":"Lee",
+  "w2_sat_0":"Maggie","w2_sat_1":"Ana","w2_sat_2":"Lee",
+  "w2_sun_0":"Maggie","w2_sun_1":"Ana","w2_sun_2":"Ana",
+};
+
+function getShifts(dayId){
+  const defs=(S.shiftDefs&&S.shiftDefs[dayId])||DEFAULT_SHIFT_DEFS[dayId]||[];
+  return defs.map((d,i)=>({i,t:d.t,h:d.h,lbl:d.lbl,type:sType(i,defs.length)}));
+}
+function sType(i,n){if(n===1)return 'd';if(i===0)return 'o';if(i===n-1)return 'c';if(i===1&&n===2)return 'n';return 'm';}
+const PC={o:'po',m:'pm',c:'pc',d:'pd',n:'pn'};
+
+// ════════════════ STATE ════════════════
+let S={
+  user:'',
+  asgn:{...DEFAULT},
+  ts:{},
+  history:[],
+  notes:[],
+  staff:['Maggie','Lee','Ana','Katherine'],
+  shiftDefs:JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS)),
+  // calendar overrides: key = "YYYY-MM-DD_shiftIdx" => employee name
+  calOverrides:{},
+};
+
+function getEMP(){if(!S.staff||!S.staff.length)S.staff=['Maggie','Lee','Ana','Katherine'];return S.staff;}
+// ════════════════ CLOUD SYNC — FIREBASE ════════════════
+// Shared data (staff, schedule, notes) syncs via Firebase Realtime Database.
+// Personal data (name, timesheets, history) stays local only.
+// Real-time: onValue listener (added in <head>) pushes changes to all devices instantly.
+let _saveTimer=null;
+
+function getSharedState(){
+  return{
+    staff:S.staff,
+    asgn:S.asgn,
+    shiftDefs:S.shiftDefs,
+    calOverrides:S.calOverrides,
+    notes:S.notes,
+  };
+}
+
+function applyShared(p){
+  if(!p)return;
+  S.staff=p.staff&&p.staff.length?p.staff:['Maggie','Lee','Ana','Katherine'];
+  S.asgn={...DEFAULT,...(p.asgn||{})};
+  S.shiftDefs=p.shiftDefs||JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS));
+  S.calOverrides=p.calOverrides||{};
+  S.notes=p.notes||[];
+}
+
+// cloudLoad is now a no-op — Firebase onValue listener handles initial load + live updates
+function cloudLoad(){
+  if(!window._fbReady){
+    toast('⚠️ Firebase not configured yet');
+  }
+  // onValue in <head> fires immediately with current data and on every future change
+}
+
+function cloudSave(){
+  saveLocal();
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    if(window._fbReady && window._fbSet && window._fbRef){
+      window._fbSet(window._fbRef, getSharedState())
+        .catch(()=>toast('Sync failed — check connection'));
+    }
+  },800);
+}
+
+function saveLocal(){
+  try{localStorage.setItem('sh6',JSON.stringify({
+    user:S.user,ts:S.ts,history:S.history,
+    // cache shared state locally as offline fallback
+    staff:S.staff,asgn:S.asgn,shiftDefs:S.shiftDefs,calOverrides:S.calOverrides,notes:S.notes
+  }));}catch(e){}
+}
+
+function load(){
+  try{
+    const d=localStorage.getItem('sh6');
+    if(d){
+      const p=JSON.parse(d);
+      S.user=p.user||'';
+      S.ts=p.ts||{};
+      S.history=p.history||[];
+      applyShared(p); // use cached shared as starting point
+    }
+  }catch(e){}
+  if(!S.shiftDefs)S.shiftDefs=JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS));
+  if(!S.staff||!S.staff.length)S.staff=['Maggie','Lee','Ana','Katherine'];
+  if(!S.calOverrides)S.calOverrides={};
+}
+
+function save(){
+  cloudSave(); // saves locally + pushes to Firebase with 800ms debounce
+}
+
+// ════════════════ NAV ════════════════
+function go(id,btn){
+  document.querySelectorAll('.sc').forEach(s=>s.classList.remove('on'));
+  document.getElementById('sc-'+id).classList.add('on');
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  ({schedule:renderSched,time:renderTime,history:renderHistory,calendar:renderCalendar,notes:renderNotes,more:renderMore})[id]?.();
+}
+
+// ════════════════ USER ════════════════
+function setUser(v){
+  S.user=v;save();
+  document.getElementById('admin-badge').style.display=v==='admin'?'block':'none';
+  document.getElementById('cal-admin-btn').style.display=v==='admin'?'block':'none';
+  renderSched();renderTime();renderHistory();
+}
+function renderUserSelect(){
+  const sel=document.getElementById('user-sel');
+  const cur=S.user||sel.value;
+  sel.innerHTML='<option value="">Select your name…</option>';
+  getEMP().forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;if(e===cur)o.selected=true;sel.appendChild(o);});
+  const a=document.createElement('option');a.value='admin';a.textContent='👑 Admin';if(cur==='admin')a.selected=true;sel.appendChild(a);
+}
+
+// ════════════════ SCHEDULE ════════════════
+function renderSched(){
+  const u=S.user;
+  document.getElementById('my-shifts').style.display=u&&u!=='admin'?'block':'none';
+  document.getElementById('full-sched').style.display=u==='admin'?'block':'none';
+  {const _tc=getTodayCycleWeek();document.getElementById('sched-sub').textContent=u?u==='admin'?'Full view — tap shift to reassign':_tc?`Hi ${u}! Cycle week ${_tc} this week.`:`Hi ${u}! Tap a shift to log your hours.`:'Select your name to get started';}
+  if(!u)return;
+  if(u==='admin'){renderFullSched();return;}
+  // Determine today's cycle week to show the relevant week first
+  const todayCycle=getTodayCycleWeek();
+  // Build week order: today's cycle week first (if determinable), then the other
+  const weekOrder=todayCycle?[todayCycle,todayCycle===1?2:1]:[1,2];
+  let html='';
+  weekOrder.forEach(w=>{
+    DAYS.forEach(day=>{
+      getShifts(day.id).forEach(sh=>{
+        const k=`w${w}_${day.id}_${sh.i}`;
+        // Use effective assignment (respects calOverrides for the real date)
+        const effectiveEmp=getEffectiveAssign(w,day.id,sh.i);
+        if(effectiveEmp!==u)return;
+        const d=S.ts[`${u}_${k}`]||{};
+        const logged=d.cin||d.cash||d.online;
+        const isCurrentWeek=todayCycle&&w===todayCycle;
+        html+=`<div class="cardsm" style="cursor:pointer" onclick="openShift('${u}','${k}','${day.label} — Week ${w}','${sh.t}')">
+          <div class="fb">
+            <div>
+              <div style="font-size:13px;color:${isCurrentWeek?'var(--accent)':'var(--text3)'};margin-bottom:3px">Week ${w}${isCurrentWeek?' · This week':''}</div>
+              <div class="fw6">${day.label}</div>
+              <div class="mono" style="font-size:12px;color:var(--text2);margin-top:3px">${sh.t}</div>
+            </div>
+            <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+              <span class="pill ${PC[sh.type]}">${sh.lbl}</span>
+              <span style="font-size:11px;color:${logged?'var(--green)':'var(--text3)'}">${logged?'✓ Logged':'Tap to log'}</span>
+            </div>
+          </div>
+        </div>`;
+      });
+    });
+  });
+  document.getElementById('my-shifts-list').innerHTML=html||'<div class="empty">No shifts assigned yet.</div>';
+}
+
+function renderFullSched(){
+  let html='';
+  [1,2].forEach(w=>{
+    html+=`<div style="padding:14px 16px 6px;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--text3);text-transform:uppercase">WEEK ${w}</div>`;
+    DAYS.forEach(day=>{
+      const shs=getShifts(day.id);
+      html+=`<div><div class="dhead"><span class="fw6 tsm">${day.label}</span><span class="txs mono" style="color:var(--text3)">${day.c12?'closes 12a':'closes 2a'}</span></div><div style="padding:0 16px">`;
+      shs.forEach(sh=>{
+        const k=`w${w}_${day.id}_${sh.i}`;
+        const emp=S.asgn[k]||'—';
+        html+=`<div class="srow" onclick="openAdminDay('${w}','${day.id}')">
+          <span class="pill ${PC[sh.type]}">${sh.lbl}</span>
+          <span class="mono tsm tm" style="flex:1">${sh.t}</span>
+          <span class="fw6 tsm">${emp}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>`;
+      });
+      html+='</div></div>';
+    });
+  });
+  document.getElementById('full-sched-list').innerHTML=html;
+}
+
+// ════════════════ SHIFT MODAL ════════════════
+let curK='',curU='';
+function openShift(u,k,title,time){
+  curK=k;curU=u;
+  document.getElementById('ms-title').textContent=title;
+  document.getElementById('ms-sub').textContent=time;
+  const d=S.ts[`${u}_${k}`]||{};
+  document.getElementById('ms-in').value=d.cin||'';
+  document.getElementById('ms-out').value=d.cout||'';
+  document.getElementById('ms-cash').value=d.cash||'';
+  document.getElementById('ms-online').value=d.online||'';
+  document.getElementById('ms-notes').value=d.notes||'';
+  om('m-shift');
+}
+function saveShift(){
+  S.ts[`${curU}_${curK}`]={
+    cin:document.getElementById('ms-in').value,
+    cout:document.getElementById('ms-out').value,
+    cash:parseFloat(document.getElementById('ms-cash').value)||0,
+    online:parseFloat(document.getElementById('ms-online').value)||0,
+    notes:document.getElementById('ms-notes').value,
+  };
+  save();cm('m-shift');toast('Shift saved ✓');renderSched();renderTime();
+}
+
+// ════════════════ TIME & TIPS ════════════════
+function renderTime(){
+  const u=S.user;
+  document.getElementById('time-prompt').style.display=u&&u!=='admin'?'none':'block';
+  document.getElementById('time-body').style.display=u&&u!=='admin'?'block':'none';
+  if(!u||u==='admin')return;
+  let rows='',tH=0,tC=0,tO=0;
+  const todayCycleT=getTodayCycleWeek();
+  const weekOrderT=todayCycleT?[todayCycleT,todayCycleT===1?2:1]:[1,2];
+  weekOrderT.forEach(w=>{
+    DAYS.forEach(day=>{
+      getShifts(day.id).forEach(sh=>{
+        const k=`w${w}_${day.id}_${sh.i}`;
+        // Use effective assignment (respects calOverrides for the real date)
+        const effectiveEmp=getEffectiveAssign(w,day.id,sh.i);
+        if(effectiveEmp!==u)return;
+        const d=S.ts[`${u}_${k}`]||{};
+        let hrs=0;
+        if(d.cin&&d.cout){
+          const[ih,im]=d.cin.split(':').map(Number);
+          let[oh,om2]=d.cout.split(':').map(Number);
+          if(oh<ih)oh+=24;
+          hrs=((oh*60+om2)-(ih*60+im))/60;
+        }
+        tH+=hrs;tC+=d.cash||0;tO+=d.online||0;
+        const isCurrentWeekT=todayCycleT&&w===todayCycleT;
+        rows+=`<div class="tsrow" onclick="openShift('${u}','${k}','${day.label} W${w}','${sh.t}')">
+          <span class="pill ${PC[sh.type]}" style="flex-shrink:0">${sh.lbl}</span>
+          <div style="flex:1;min-width:0">
+            <div class="fw6 tsm">${day.short} — <span style="color:${isCurrentWeekT?'var(--accent)':'var(--text2)'}">Week ${w}${isCurrentWeekT?' ·  now':''}</span></div>
+            <div class="mono txs tm">${sh.t}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            ${hrs>0?`<div class="mono txs ta fw6">${hrs.toFixed(1)}h</div>`:''}
+            ${(d.cash||d.online)?`<div class="txs tg">$${((d.cash||0)+(d.online||0)).toFixed(2)}</div>`:'<div class="txs" style="color:var(--text3)">+ log</div>'}
+          </div>
+        </div>`;
+      });
+    });
+  });
+  document.getElementById('ts-rows').innerHTML=rows||'<div class="empty" style="padding:20px 0">No shifts assigned to you.</div>';
+  document.getElementById('tot-hrs').textContent=tH.toFixed(1)+' hrs';
+  document.getElementById('tot-cash').textContent='$'+tC.toFixed(2);
+  document.getElementById('tot-online').textContent='$'+tO.toFixed(2);
+  document.getElementById('tot-tips').textContent='$'+(tC+tO).toFixed(2);
+}
+
+function savePeriod(){
+  const u=S.user;if(!u||u==='admin')return;
+  let tH=0,tC=0,tO=0,entries=[];
+  [1,2].forEach(w=>{
+    DAYS.forEach(day=>{
+      getShifts(day.id).forEach(sh=>{
+        const k=`w${w}_${day.id}_${sh.i}`;
+        if(S.asgn[k]!==u)return;
+        const d=S.ts[`${u}_${k}`]||{};
+        let hrs=0;
+        if(d.cin&&d.cout){const[ih,im]=d.cin.split(':').map(Number);let[oh,om2]=d.cout.split(':').map(Number);if(oh<ih)oh+=24;hrs=((oh*60+om2)-(ih*60+im))/60;}
+        tH+=hrs;tC+=d.cash||0;tO+=d.online||0;
+        entries.push({day:day.short,week:w,time:sh.t,hrs,cash:d.cash||0,online:d.online||0});
+      });
+    });
+  });
+  S.history.unshift({id:Date.now()+'',user:u,savedAt:Date.now(),hours:tH,cash:tC,online:tO,entries});
+  save();toast('Pay period saved to History ✓');renderHistory();
+}
+
+function clearSheet(){
+  const u=S.user;if(!u)return;
+  Object.keys(S.ts).forEach(k=>{if(k.startsWith(u+'_'))delete S.ts[k];});
+  save();cm('m-clear');toast('Timesheet cleared');renderSched();renderTime();
+}
+
+function openPayroll(){
+  const u=S.user;
+  let lines=[`PAYROLL — ${u}`,`Period: Weeks 1 & 2`,``];
+  let tH=0,tC=0,tO=0;
+  [1,2].forEach(w=>{
+    lines.push(`—— Week ${w} ——`);
+    DAYS.forEach(day=>{
+      getShifts(day.id).forEach(sh=>{
+        const k=`w${w}_${day.id}_${sh.i}`;
+        if(S.asgn[k]!==u)return;
+        const d=S.ts[`${u}_${k}`]||{};
+        let hrs=0;
+        if(d.cin&&d.cout){const[ih,im]=d.cin.split(':').map(Number);let[oh,om2]=d.cout.split(':').map(Number);if(oh<ih)oh+=24;hrs=((oh*60+om2)-(ih*60+im))/60;}
+        tH+=hrs;tC+=d.cash||0;tO+=d.online||0;
+        lines.push(`${day.short}: ${d.cin||'?'}-${d.cout||'?'} | Cash $${(d.cash||0).toFixed(2)} | Online $${(d.online||0).toFixed(2)}`);
+      });
+    });
+    lines.push('');
+  });
+  lines.push(`Hours: ${tH.toFixed(1)}`);
+  lines.push(`Cash Tips: $${tC.toFixed(2)}`);
+  lines.push(`Online Tips: $${tO.toFixed(2)}`);
+  lines.push(`Total Tips: $${(tC+tO).toFixed(2)}`);
+  const msg=lines.join('\n');
+  document.getElementById('pay-pre').textContent=msg;
+  document.getElementById('pay-sms').href=`sms:${PAUL}?body=${encodeURIComponent(msg)}`;
+  om('m-payroll');
+}
+function copyPay(){navigator.clipboard.writeText(document.getElementById('pay-pre').textContent).catch(()=>{});toast('Copied ✓');}
+
+// ════════════════ HISTORY ════════════════
+function renderHistory(){
+  const u=S.user;
+  document.getElementById('hist-prompt').style.display=u&&u!=='admin'?'none':'block';
+  document.getElementById('hist-body').style.display=u&&u!=='admin'?'block':'none';
+  if(!u||u==='admin')return;
+  const mine=S.history.filter(h=>h.user===u);
+  document.getElementById('hist-list').innerHTML=mine.length?mine.map(h=>`
+    <div class="cardsm" style="cursor:pointer;margin-bottom:8px" onclick="openHist('${h.id}')">
+      <div class="fb">
+        <div><div class="fw6 tsm">Saved ${new Date(h.savedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div><div class="txs tm mt8">${h.entries.length} shifts</div></div>
+        <div style="text-align:right"><div class="mono tsm ta fw6">${h.hours.toFixed(1)} hrs</div><div class="mono txs tg">$${(h.cash+h.online).toFixed(2)} tips</div></div>
+      </div>
+    </div>`).join(''):'<div class="empty">No saved periods yet.<br>Go to Time & Tips → Save Period.</div>';
+}
+function openHist(id){
+  const h=S.history.find(x=>x.id===id);if(!h)return;
+  document.getElementById('mh-title').textContent='Pay Period';
+  document.getElementById('mh-sub').textContent=new Date(h.savedAt).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  let lines=[`${h.user}`,``];
+  h.entries.forEach(e=>{lines.push(`${e.day} W${e.week}  ${e.time}`);lines.push(`  ${e.hrs.toFixed(1)}h  Cash $${e.cash.toFixed(2)}  Online $${e.online.toFixed(2)}`);});
+  lines.push('');lines.push(`Total: ${h.hours.toFixed(1)} hrs`);lines.push(`Cash: $${h.cash.toFixed(2)}`);lines.push(`Online: $${h.online.toFixed(2)}`);lines.push(`Tips: $${(h.cash+h.online).toFixed(2)}`);
+  document.getElementById('mh-body').textContent=lines.join('\n');
+  om('m-hist');
+}
+
+// ════════════════ CALENDAR ════════════════
+// Calendar shows real dates, two-week cycle repeating, with actual names per day
+// Cycle start: May 19 2025 = Week 1 start
+const CYCLE_START = new Date('2025-05-19T00:00:00');
+const CAL_END     = new Date('2025-08-25T00:00:00');
+const DN = ['sun','mon','tue','wed','thu','fri','sat'];
+// JS Date has a 1-day offset error for 2025 dates - correct it
+function getRealDay(date){ return (date.getDay()+1)%7; }
+
+function getCycleForDate(date){
+  const msPerWeek=7*24*60*60*1000;
+  const weekNum=Math.floor((date-CYCLE_START)/msPerWeek);
+  if(weekNum<0)return null;
+  return (weekNum%2)+1; // 1 or 2
+}
+
+// Returns today's cycle week (1 or 2), or null if outside the schedule range
+function getTodayCycleWeek(){
+  const today=new Date();today.setHours(0,0,0,0);
+  return getCycleForDate(today);
+}
+
+// Given a cycle week number and a dayId (e.g. 'tue'), find the real calendar date
+// for that day within the cycle week. Returns a Date or null.
+function getRealDateForCycleDay(cycleWeek, dayId){
+  const msPerWeek=7*24*60*60*1000;
+  // Find the Monday that starts the cycle week
+  // CYCLE_START is a Monday; each 2-week cycle is 14 days
+  // We need to find which 14-day block we're currently in
+  const today=new Date();today.setHours(0,0,0,0);
+  const totalWeeks=Math.floor((today-CYCLE_START)/msPerWeek);
+  if(totalWeeks<0)return null;
+  const cycleBlock=Math.floor(totalWeeks/2); // which 2-week block are we in
+  // Monday of the first week of this cycle block
+  const blockStart=new Date(CYCLE_START.getTime()+cycleBlock*2*msPerWeek);
+  // Week 1 starts at blockStart, Week 2 starts 7 days later
+  const weekStart=new Date(blockStart.getTime()+(cycleWeek-1)*msPerWeek);
+  // Find the day offset within the week
+  const dayOffset=DN.indexOf(dayId); // DN = ['sun','mon','tue','wed','thu','fri','sat']
+  // weekStart is a Monday (JS day index 1). DN[0]='sun'=6 days after Mon,
+  // DN[1]='mon'=0, DN[2]='tue'=1, ... DN[6]='sat'=5
+  const MON_INDEX=1; // JS getDay() for Monday
+  const dn_to_offset={'sun':6,'mon':0,'tue':1,'wed':2,'thu':3,'fri':4,'sat':5};
+  const offset=dn_to_offset[dayId];
+  if(offset===undefined)return null;
+  const result=new Date(weekStart.getTime()+offset*24*60*60*1000);
+  return result;
+}
+
+// Returns the effective employee name for a (cycleWeek, dayId, shiftIdx) tuple,
+// respecting calOverrides for the real calendar date.
+function getEffectiveAssign(cycleWeek, dayId, shiftIdx){
+  const realDate=getRealDateForCycleDay(cycleWeek, dayId);
+  if(realDate){
+    const dateKey=fmtDate(realDate);
+    const oKey=`${dateKey}_${shiftIdx}`;
+    if(S.calOverrides&&S.calOverrides[oKey]!==undefined)return S.calOverrides[oKey];
+  }
+  return S.asgn[`w${cycleWeek}_${dayId}_${shiftIdx}`]||null;
+}
+
+function getAssignForDate(date, dayId, shiftIdx){
+  // Check calendar-specific override first
+  const dateKey=fmtDate(date);
+  const oKey=`${dateKey}_${shiftIdx}`;
+  if(S.calOverrides&&S.calOverrides[oKey]!==undefined)return S.calOverrides[oKey];
+  // Fall back to cycle assignment
+  const cyc=getCycleForDate(date);
+  if(!cyc)return null;
+  return S.asgn[`w${cyc}_${dayId}_${shiftIdx}`]||null;
+}
+
+function fmtDate(d){return d.toISOString().slice(0,10);}
+
+function renderCalendar(){
+  document.getElementById('cal-admin-btn').style.display=S.user==='admin'?'block':'none';
+  const isAdmin=S.user==='admin';
+  const myName=S.user&&S.user!=='admin'?S.user:null;
+
+  // Build weeks from CYCLE_START to CAL_END
+  let html='';
+  let cur=new Date(CYCLE_START);
+  let weekIdx=0;
+
+  while(cur<=CAL_END){
+    const cyc=(weekIdx%2)+1;
+    const weekEnd=new Date(cur);weekEnd.setDate(cur.getDate()+6);
+    const wLabel=`${cur.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${weekEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+
+    html+=`<div class="cal-week">
+      <div class="cal-week-head">
+        <span class="fw6 tsm">${wLabel}</span>
+        <span class="txs" style="color:var(--text3)">Cycle ${cyc}</span>
+      </div>
+      <div class="cal-week-body">`;
+
+    for(let d=0;d<7;d++){
+      const day=new Date(cur);day.setDate(cur.getDate()+d);
+      if(day>CAL_END)break;
+      const dayId=DN[getRealDay(day)];
+      const dayDef=ALL_DAYS.find(x=>x.id===dayId);if(!dayDef)continue;
+      const dateKey=fmtDate(day);
+      const REAL_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const dateLabel=REAL_DAYS[getRealDay(day)]+' '+day.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+      if(dayDef.closed){
+        html+=`<div class="cal-day">
+          <div class="cal-day-head">
+            <span class="cal-day-name" style="color:var(--text3)">${dayDef.label}</span>
+            <span class="cal-date">${day.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+          </div>
+          <div class="cal-empty">Closed</div>
+        </div>`;
+        continue;
+      }
+
+      const shs=getShifts(dayId);
+      const hasMyShift=myName&&shs.some((sh,i)=>getAssignForDate(day,dayId,i)===myName);
+
+      html+=`<div class="cal-day" style="${hasMyShift?'background:rgba(124,106,247,.05)':''}" ${isAdmin?`onclick="openCalEdit('${dateKey}','${dayId}','${dateLabel}')"`:''}> 
+        <div class="cal-day-head">
+          <span class="cal-day-name">${dayDef.label}${hasMyShift?` <span style="color:var(--accent);font-size:11px">● YOU</span>`:''}</span>
+          <span class="cal-date">${day.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+        </div>
+        <div class="cal-shifts">`;
+
+      shs.forEach((sh,i)=>{
+        const emp=getAssignForDate(day,dayId,i);
+        const isMe=myName&&emp===myName;
+        html+=`<div class="cal-shift" style="${isMe?'background:rgba(124,106,247,.15);border:1px solid rgba(124,106,247,.3)':''}">
+          <span class="pill ${PC[sh.type]}" style="font-size:10px;padding:2px 6px">${sh.lbl}</span>
+          <span class="cal-shift-name" style="${isMe?'color:var(--accent)':''}">${emp||'<span style="color:var(--text3)">Unassigned</span>'}</span>
+          <span class="cal-shift-time">${sh.t}</span>
+        </div>`;
+      });
+
+      if(isAdmin)html+=`<div style="margin-top:4px;font-size:11px;color:var(--accent)">Tap to edit →</div>`;
+      html+=`</div></div>`;
+    }
+
+    html+=`</div></div>`;
+    cur.setDate(cur.getDate()+7);
+    weekIdx++;
+  }
+  document.getElementById('cal-body').innerHTML=html;
+}
+
+// Calendar day editor for admin
+let calEditDate='',calEditDayId='';
+function openCalEdit(dateKey,dayId,label){
+  if(S.user!=='admin')return;
+  calEditDate=dateKey;calEditDayId=dayId;
+  document.getElementById('mce-title').textContent=label;
+  document.getElementById('mce-sub').textContent='Changes here apply only to this specific date (overrides the cycle template).';
+  renderCalEditPicker();
+  om('m-cal-edit');
+}
+function renderCalEditPicker(){
+  const shs=getShifts(calEditDayId);
+  let html='';
+  shs.forEach((sh,i)=>{
+    const oKey=`${calEditDate}_${i}`;
+    // What's currently showing (override or cycle)
+    const cycleDay=ALL_DAYS.find(x=>x.id===calEditDayId);
+    const date=new Date(calEditDate+'T00:00:00');
+    const cyc=getCycleForDate(date);
+    const cycleVal=cyc?S.asgn[`w${cyc}_${calEditDayId}_${i}`]||'':'';
+    const overrideVal=S.calOverrides[oKey];
+    const curVal=overrideVal!==undefined?overrideVal:cycleVal;
+    const hasOverride=overrideVal!==undefined;
+    html+=`<div class="shift-editor-box">
+      <div class="fb" style="margin-bottom:8px">
+        <span class="fw6 tsm">${sh.lbl} — ${sh.t}</span>
+        ${hasOverride?`<button class="btn byw" style="font-size:11px;padding:3px 8px" onclick="clearCalOverride('${oKey}')">↩ Reset to Cycle</button>`:'<span class="txs tm">Using cycle template</span>'}
+      </div>
+      <select onchange="setCalOverride('${oKey}',this.value)">
+        <option value="">— Unassigned —</option>
+        ${getEMP().map(e=>`<option value="${e}"${curVal===e?' selected':''}>${e}</option>`).join('')}
+      </select>
+    </div>`;
+  });
+  document.getElementById('mce-picker').innerHTML=html;
+}
+function setCalOverride(oKey,val){
+  if(!S.calOverrides)S.calOverrides={};
+  if(val)S.calOverrides[oKey]=val;else S.calOverrides[oKey]='';
+  save();renderCalendar();toast('Date updated ✓');
+}
+function clearCalOverride(oKey){
+  delete S.calOverrides[oKey];
+  save();renderCalEditPicker();renderCalendar();toast('Reset to cycle');
+}
+
+// ════════════════ NOTES ════════════════
+function renderNotes(){
+  const list=S.notes.slice().reverse();
+  document.getElementById('notes-list').innerHTML=list.length?list.map(n=>`
+    <div class="note-e">
+      <div class="fb" style="margin-bottom:5px"><span class="txs fw6 ta">${n.user}</span><span class="txs" style="color:var(--text3)">${fmtTs(n.ts)}</span></div>
+      <div class="tsm" style="line-height:1.5">${esc(n.text)}</div>
+    </div>`).join(''):'<div class="empty">No notes yet. Be the first!</div>';
+}
+function postNote(){
+  if(!S.user){toast('Select your name first');return;}
+  const t=document.getElementById('note-txt').value.trim();if(!t)return;
+  S.notes.push({id:Date.now()+'',user:S.user,text:t,ts:Date.now()});
+  document.getElementById('note-txt').value='';
+  save();renderNotes();toast('Posted ✓');
+}
+
+// ════════════════ MORE ════════════════
+function renderMore(){
+  document.getElementById('admin-tools').style.display=S.user==='admin'?'block':'none';
+}
+
+// ════════════════ ADMIN SCHEDULE ════════════════
+let adminTab='assign';
+function switchAdminTab(tab){
+  adminTab=tab;
+  document.getElementById('tab-assign').className='btn '+(tab==='assign'?'bp':'bs');
+  document.getElementById('tab-assign').style.cssText='flex:1;font-size:13px;padding:9px';
+  document.getElementById('tab-times').className='btn '+(tab==='times'?'bp':'bs');
+  document.getElementById('tab-times').style.cssText='flex:1;font-size:13px;padding:9px';
+  document.getElementById('apicker').style.display=tab==='assign'?'block':'none';
+  document.getElementById('atimes').style.display=tab==='times'?'block':'none';
+  if(tab==='times')renderTimesEditor();
+}
+function openAdminSched(){
+  adminTab='assign';
+  document.getElementById('apicker').style.display='block';
+  document.getElementById('atimes').style.display='none';
+  document.getElementById('tab-assign').className='btn bp';document.getElementById('tab-assign').style.cssText='flex:1;font-size:13px;padding:9px';
+  document.getElementById('tab-times').className='btn bs';document.getElementById('tab-times').style.cssText='flex:1;font-size:13px;padding:9px';
+  renderPicker();om('m-admin');
+}
+function openAdminDay(w,dayId){
+  document.getElementById('aw').value=w;document.getElementById('ad').value=dayId;
+  adminTab='assign';
+  document.getElementById('apicker').style.display='block';document.getElementById('atimes').style.display='none';
+  document.getElementById('tab-assign').className='btn bp';document.getElementById('tab-assign').style.cssText='flex:1;font-size:13px;padding:9px';
+  document.getElementById('tab-times').className='btn bs';document.getElementById('tab-times').style.cssText='flex:1;font-size:13px;padding:9px';
+  renderPicker();om('m-admin');
+}
+function renderPicker(){
+  const w=document.getElementById('aw').value;
+  const dayId=document.getElementById('ad').value;
+  const day=DAYS.find(d=>d.id===dayId);if(!day)return;
+  document.getElementById('apicker').innerHTML=getShifts(dayId).map(sh=>{
+    const k=`w${w}_${dayId}_${sh.i}`;const cur=S.asgn[k]||'';
+    return `<div class="shift-editor-box">
+      <div class="fw6 tsm mb8" style="margin-bottom:8px">${sh.lbl} — ${sh.t}</div>
+      <select onchange="setAsgn('${k}',this.value)">
+        <option value="">— Unassigned —</option>
+        ${getEMP().map(e=>`<option value="${e}"${cur===e?' selected':''}>${e}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+}
+function setAsgn(k,v){
+  if(v)S.asgn[k]=v;else delete S.asgn[k];
+  save();renderSched();renderCalendar();toast('Updated ✓');
+}
+
+// Shift time editor
+function renderTimesEditor(){
+  const dayId=document.getElementById('ad').value;
+  const dayDef=DAYS.find(d=>d.id===dayId);if(!dayDef)return;
+  const defs=(S.shiftDefs&&S.shiftDefs[dayId])||DEFAULT_SHIFT_DEFS[dayId]||[];
+  let html=`<div style="font-size:13px;color:var(--text2);margin-bottom:12px">Editing shifts for <strong style="color:var(--text)">${dayDef.label}</strong>. These apply to all weeks of this day.</div>`;
+  defs.forEach((sh,i)=>{
+    html+=`<div class="shift-editor-box">
+      <div class="fb" style="margin-bottom:10px">
+        <span class="fw6 tsm">Shift ${i+1}</span>
+        <button class="btn bdn" style="font-size:11px;padding:4px 10px" onclick="removeShiftDef('${dayId}',${i})">Remove</button>
+      </div>
+      <div class="fl"><label>Label (e.g. Open, Mid, Close)</label>
+        <input type="text" value="${sh.lbl}" onchange="updateShiftDef('${dayId}',${i},'lbl',this.value)">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="fl" style="flex:1;margin-bottom:0"><label>Display Time</label>
+          <input type="text" value="${sh.t}" placeholder="e.g. 10a–4p" onchange="updateShiftDef('${dayId}',${i},'t',this.value)">
+        </div>
+        <div class="fl" style="width:75px;margin-bottom:0"><label>Hrs</label>
+          <input type="number" value="${sh.h}" min="0.5" max="24" step="0.5" onchange="updateShiftDef('${dayId}',${i},'h',parseFloat(this.value)||0)">
+        </div>
+      </div>
+    </div>`;
+  });
+  html+=`<button class="btn bgn bfull" onclick="addShiftDef('${dayId}')">+ Add Shift to ${dayDef.label}</button>`;
+  document.getElementById('atimes').innerHTML=html;
+}
+function updateShiftDef(dayId,i,field,val){
+  if(!S.shiftDefs[dayId])S.shiftDefs[dayId]=JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS[dayId]||[]));
+  S.shiftDefs[dayId][i][field]=val;
+  save();renderSched();renderCalendar();toast('Shift time updated ✓');
+}
+function removeShiftDef(dayId,i){
+  if(!S.shiftDefs[dayId])S.shiftDefs[dayId]=JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS[dayId]||[]));
+  if(S.shiftDefs[dayId].length<=1){toast("Need at least 1 shift");return;}
+  S.shiftDefs[dayId].splice(i,1);
+  Object.keys(S.asgn).forEach(k=>{if(k.includes('_'+dayId+'_')){const si=parseInt(k.split('_').pop());if(si>=S.shiftDefs[dayId].length)delete S.asgn[k];}});
+  save();renderTimesEditor();renderSched();renderCalendar();toast('Shift removed');
+}
+function addShiftDef(dayId){
+  if(!S.shiftDefs[dayId])S.shiftDefs[dayId]=JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS[dayId]||[]));
+  S.shiftDefs[dayId].push({t:'?–?',h:4,lbl:'New Shift'});
+  save();renderTimesEditor();toast('Shift added — fill in the time');
+}
+
+// ════════════════ STAFF MANAGEMENT ════════════════
+function openManageStaff(){renderStaffList();document.getElementById('new-emp-name').value='';om('m-staff');}
+function renderStaffList(){
+  const list=getEMP();
+  document.getElementById('staff-list').innerHTML=list.length?list.map((e,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span class="fw6 tsm">${e}</span>
+      <button class="btn bdn" style="padding:5px 12px;font-size:12px" onclick="removeEmployee(${i})">Remove</button>
+    </div>`).join(''):'<div class="empty" style="padding:12px 0">No employees. Add one below.</div>';
+}
+function addEmployee(){
+  const n=document.getElementById('new-emp-name').value.trim();
+  if(!n){toast('Enter a name');return;}
+  if(getEMP().includes(n)){toast('Already on roster');return;}
+  S.staff.push(n);save();
+  document.getElementById('new-emp-name').value='';
+  renderStaffList();renderUserSelect();toast(n+' added ✓');
+}
+function removeEmployee(i){
+  const name=S.staff[i];
+  if(confirm('Remove '+name+' from the roster?')){
+    S.staff.splice(i,1);save();
+    renderStaffList();renderUserSelect();
+    if(S.user===name){S.user='';document.getElementById('user-sel').value='';renderSched();renderTime();renderHistory();}
+    toast(name+' removed');
+  }
+}
+
+function resetSchedule(){
+  if(confirm('Reset schedule to default? Staff list and timesheets are kept.')){
+    S.asgn={...DEFAULT};S.shiftDefs=JSON.parse(JSON.stringify(DEFAULT_SHIFT_DEFS));S.calOverrides={};
+    save();renderSched();renderCalendar();toast('Schedule reset ✓');
+  }
+}
+function exportData(){
+  const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='staffhub.json';a.click();
+}
+
+// ════════════════ UTILS ════════════════
+function om(id){document.getElementById(id).classList.add('on');}
+function cm(id){document.getElementById(id).classList.remove('on');}
+function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtTs(ts){const d=new Date(ts);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
+let ttimer;
+function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');clearTimeout(ttimer);ttimer=setTimeout(()=>e.classList.remove('on'),2800);}
+document.querySelectorAll('.mbg').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('on');}));
+
+// ════════════════ INIT ════════════════
+load();
+renderUserSelect();
+if(S.user){
+  document.getElementById('admin-badge').style.display=S.user==='admin'?'block':'none';
+  document.getElementById('cal-admin-btn').style.display=S.user==='admin'?'block':'none';
+}
+renderSched();
+// Firebase onValue listener (in <head>) handles live sync automatically.
+// cloudLoad() just checks the config is in place.
+cloudLoad();
+</script>
+</body>
+</html>
